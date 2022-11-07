@@ -7,3 +7,5 @@
 #define MQTT_BROKER_USER "admin"
 #define MQTT_BROKER_PASS "admin"
 
+//#define UNIQ_ID "boiler"
+
