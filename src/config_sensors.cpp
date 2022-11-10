@@ -83,6 +83,26 @@ HASensor BoilerTemperature("BoilerTemperature");
 HASensor Presure("CHPresure");
 HASensor PresureV("CHPresureV");
 
+HAHVAC HVAC("CH", HAHVAC::TargetTemperatureFeature | HAHVAC::PowerFeature);
+
+void onTargetTemperatureCommand(HANumeric temperature, HAHVAC *sender)
+{
+    float temperatureFloat = temperature.toFloat();
+
+    Serial.print("Target temperature: ");
+    Serial.println(temperatureFloat);
+
+    if (ot.setBoilerTemperature(temperatureFloat))
+    {
+        sender->setTargetTemperature(temperatureFloat); // report target temperature back to the HA panel
+    }
+    else
+    {
+        DEBUG("Error set target temperature: ");
+        sender->setTargetTemperature(0.0f, true);
+    }
+}
+
 void onSwitchCommand(bool state, HASwitch *sender)
 {
     sender->setState(state); // report state back to the Home Assistant
@@ -145,6 +165,15 @@ void initConfig(const HADevice &d)
     PresureV.setName("CH Presure V");
     PresureV.setDeviceClass("pressure");
     PresureV.setUnitOfMeasurement("V");
+
+    HVAC.setName("CH");
+    HVAC.onTargetTemperatureCommand(onTargetTemperatureCommand);
+    HVAC.setMaxTemp(80);
+    HVAC.setMinTemp(10);
+    HVAC.setRetain(true);
+    HVAC.setTempStep(0.5);
+    HVAC.setModes(HAHVAC::HeatMode | HAHVAC::OffMode);
+    // HVAC.setTargetTemperature(21.0f);
 }
 
 unsigned long lastCall = millis();
@@ -255,6 +284,7 @@ void readLoop()
         char buffer[10];
         sprintf(buffer, "%2f", ot.getFloat(response));
         BoilerTemperature.setValue(buffer);
+        HVAC.setCurrentTemperature(ot.getFloat(response));
     }
     else
     {
@@ -288,7 +318,8 @@ void readLoop()
     lastCall = millis();
 };
 
-double map(double x, double in_min, double in_max, double out_min, double out_max) {
+double map(double x, double in_min, double in_max, double out_min, double out_max)
+{
     const double dividend = out_max - out_min;
     const double divisor = in_max - in_min;
     const double delta = x - in_min;

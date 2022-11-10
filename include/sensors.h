@@ -97,6 +97,8 @@ extern HASensor BoilerTemperature;
 
 extern HASensor Presure;
 
+extern HAHVAC HVAC;
+
 void initConfig(const HADevice & d);
 
 void readLoop();
