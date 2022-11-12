@@ -14,15 +14,19 @@
 
 #include "config.h"
 #include "sensors.h"
+#include "shell.h"
 
 const int inPin = 4;  // for Arduino, 4 for ESP8266 (D2), 21 for ESP32
 const int outPin = 5; // for Arduino, 5 for ESP8266 (D1), 22 for ESP32
 
 OpenTherm ot(inPin, outPin);
+Shell sh;
 
 WiFiClient client;
 HADevice device(UNIQ_ID);
 HAMqtt mqtt(client, device, 30);
+
+void initShell();
 
 void ICACHE_RAM_ATTR handleInterrupt()
 {
@@ -46,6 +50,7 @@ void setup()
     device.enableSharedAvailability();
     device.enableLastWill();
     initConfig(device);
+    initShell();
 
     while (WiFi.status() != WL_CONNECTED) {
         Serial.print(".");
@@ -66,12 +71,19 @@ void loop()
 {
     // system tasks
     readLoop();
+    sh.loop();
     // check wifi
     if (WiFi.status() != WL_CONNECTED) {
         DEBUG("Connection lost, try to reconnect...\n");
         return;
     }
-
     // network stuff
     mqtt.loop();
-}
+};
+
+
+void initShell() {
+    sh.registerCmd("hello", [](char * args, char argc, Stream &output) {
+        output.print("world");
+    });
+};
