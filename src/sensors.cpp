@@ -1,89 +1,50 @@
 #include <Arduino.h>
 #include <ArduinoHA.h>
-#include "sensors.h"
 #include <OpenTherm.h>
+
+#include "sensors.h"
+#include "config.h"
 
 extern OpenTherm ot;
 
-// It is required that OpenTherm-compliant devices support the following data items.
-// ID Description                   Master                                    Slave
-// 0  Master and slave status flags • Must sent message with READ_DATA        • Must respond with READ_ACK
-//                                  • Must support all bits in master status  • Must support all bits in slave status
-//
-// HB Master config
-// 0: CH enable [ CH is disabled, CH is enabled]
-HASwitch CHEnabled("CHEnabled");
-// 1: DHW enable [ DHW is disabled, DHW is enabled]
-HASwitch DHWEnabled("DHWEnabled");
-// 2: Cooling enable [ Cooling is disabled, Cooling is enabled]
-HASwitch CoolingEnabled("CoolingEnabled");
-// 3: OTC active [OTC not active, OTC is active]
-HASwitch OTCActive("OTCActive");
-// 4: CH2 enable [CH2 is disabled, CH2 is enabled]
-HASwitch CH2Enabled("CH2Enabled");
+#define BIT_CHENABLED (1 << 8)
+#define BIT_DHWENABLED (1 << 9)
+#define BIT_COOLINGENABLED (1 << 10)
+#define BIT_OTCACTIVE (1 << 11)
+#define BIT_CH2ENABLED (1 << 12)
+#define BIT_FAULTINDICATOR (1)
+#define BIT_CHMODE (1 << 1)
+#define BIT_DHWMODE (1 << 2)
+#define BIT_FLAMESTATUS (1 << 3)
+#define BIT_COOLINGSTATUS (1 << 4)
+#define BIT_CH2MODE (1 << 5)
+#define BIT_DIAGNOSTICINDICATION (1 << 6)
+#define BIT_DHWPRESENT (1 << 8)
+#define BIT_CONTROLTYPE (1 << 9)
+#define BIT_COOLINGCONFIG (1 << 10)
+#define BIT_DHWCONFIG (1 << 11)
+#define BIT_PUMPCONTROL (1 << 12)
+#define BIT_CH2PRESENT (1 << 13)
 
-// LB: Slave status flag8 bit: description [ clear/0, set/1]
-// 0: fault indication [ no fault, fault ]
 HASensor FaultIndication("FaultIndication");
-// 1: CH mode [CH not active, CH active]
 HASensor CHMode("CHMode");
-// 2: DHW mode [ DHW not active, DHW active]
 HASensor DHWMode("DHWMode");
-// 3: Flame status [ flame off, flame on ]
 HASensor FlameStatus("FlameStatus");
-// 4: Cooling status [ cooling mode not active, cooling mode active ]
 HASensor CoolingStatus("CoolingStatus");
-// 5: CH2 mode [CH2 not active, CH2 active]
 HASensor CH2Mode("CH2Mode");
-// 6: diagnostic indication [no diagnostics, diagnostic event]
 HASensor DiagnosticIndication("DiagnosticIndication");
 
-// 1 Control setpoint               • Must sent message with                  • Must respond with WRITE_ACK
-//   ie CH water temp. setpoint       WRITE_DATA or INVALID_DATA
-//                                    (not recommended)
-// HASensor ControlSetpoint("ControlSetpoint");
-
-// 3 Slave configuration flags      • Must sent message with                  • Must respond with READ_ACK
-//                                    READ_DATA (at least at start up)        • Must support all slave configuration
-//                                                                              flags
-// 0: DHW present [ dhw not present, dhw is present ]
-HASensor DHWPresent("DHWPresent");
-// 1: Control type [ modulating, on/off ]
-HASensor ControlType("ControlType");
-// 2: Cooling config [ cooling not supported, cooling supported]
-HASensor CoolingConfig("CoolingConfig");
-// 3: DHW config [instantaneous or not-specified, storage tank]
-HASensor DHWConfig("DHWConfig");
-// 4: Master low-off&pump control function [allowed, not allowed]
-HASensor PumpControl("PumpControl");
-// 5: CH2 present [CH2 not present, CH2 present]
-HASensor CH2Present("CH2Present");
-
-// LB: Slave MemberID code u8 0..255 MemberID code of the slave
+HASensor SlaveConfig("SlaveConfig");
 HASensor SlaveMemeberID("SlaveMemeberID");
-
-// 14 Maximum relative modulation   • Not mandatory                           • Must respond with WRITE_ACK
-//    level setting                 • Recommended for use in on-off
-//                                    control mode.
-//
-//
-//
-
-// 17 Relative modulation level     • Not mandatory                           • Must respond with READ_ACK or DATA_INVALID
 HASensor RelativeModulationLevel("RelativeModulationLevel");
 
-// 25 Boiler temperature            • Not mandatory                           • Must respond with READ_ACK or
-//                                                                              DATA_INVALID (for example if
-//                                                                              sensor fault)
 HASensor BoilerTemperature("BoilerTemperature");
-
-// The slave can respond to all other read/write requests, if not supported, with an UNKNOWN-DATAID reply.
-// Master units (typically room controllers) should be designed to act in a manner consistent with this rule.
 
 HASensor Presure("CHPresure");
 HASensor PresureV("CHPresureV");
 
-HAHVAC HVAC("CH", HAHVAC::TargetTemperatureFeature | HAHVAC::PowerFeature);
+HAHVAC CH("CH", HAHVAC::TargetTemperatureFeature | HAHVAC::PowerFeature | HAHVAC::ModesFeature);
+HAHVAC DHW("DHW", HAHVAC::TargetTemperatureFeature | HAHVAC::PowerFeature | HAHVAC::ModesFeature);
 
 void onTargetTemperatureCommand(HANumeric temperature, HAHVAC *sender)
 {
@@ -92,14 +53,20 @@ void onTargetTemperatureCommand(HANumeric temperature, HAHVAC *sender)
     Serial.print("Target temperature: ");
     Serial.println(temperatureFloat);
 
-    if (ot.setBoilerTemperature(temperatureFloat))
+    bool result = false;
+    if (sender == &CH)
     {
-        sender->setTargetTemperature(temperatureFloat); // report target temperature back to the HA panel
+        result = ot.setBoilerTemperature(temperatureFloat);
     }
-    else
+    else if (sender == &DHW)
+    {
+        result = ot.setDHWSetpoint(temperatureFloat);
+    }
+
+    sender->setTargetTemperature(temperatureFloat); // report target temperature back to the HA panel
+    if (result)
     {
         DEBUG("Error set target temperature: ");
-        sender->setTargetTemperature(0.0f, true);
     }
 }
 
@@ -108,72 +75,61 @@ void onSwitchCommand(bool state, HASwitch *sender)
     sender->setState(state); // report state back to the Home Assistant
 }
 
-void initConfig(HADevice &d, HAMqtt& mqtt)
+void initConfig(HADevice &d, HAMqtt &mqtt)
 {
-    // HB Master config
-    CHEnabled.setName("CH enable");
-    CHEnabled.setRetain(true);
-    CHEnabled.onCommand(onSwitchCommand);
-
-    DHWEnabled.setName("DHW enable");
-    DHWEnabled.setRetain(true);
-    DHWEnabled.onCommand(onSwitchCommand);
-
-    CoolingEnabled.setName("Cooling enable");
-    CoolingEnabled.setRetain(true);
-    CoolingEnabled.onCommand(onSwitchCommand);
-
-    OTCActive.setName("OTC active");
-    OTCActive.setRetain(true);
-    OTCActive.onCommand(onSwitchCommand);
-
-    CH2Enabled.setName("CH2 enable");
-    CH2Enabled.setRetain(true);
-    CH2Enabled.onCommand(onSwitchCommand);
-
     // LB Slave status
     FaultIndication.setName("Fault Indication");
+    mqtt.addDeviceType(&FaultIndication);
     CHMode.setName("CH Mode");
+    mqtt.addDeviceType(&CHMode);
     DHWMode.setName("DHW Mode");
+    mqtt.addDeviceType(&DHWMode);
     FlameStatus.setName("Flame status");
+    mqtt.addDeviceType(&FlameStatus);
     CoolingStatus.setName("Cooling status");
+    mqtt.addDeviceType(&CoolingStatus);
     CH2Mode.setName("CH2 mode");
+    mqtt.addDeviceType(&CH2Mode);
     DiagnosticIndication.setName("Diagnostic indication");
+    mqtt.addDeviceType(&DiagnosticIndication);
 
-    DHWPresent.setName("DHW present");
-    ControlType.setName("Control type");
-    CoolingConfig.setName("Cooling config");
-    DHWConfig.setName("DHW config");
-    PumpControl.setName("Master low-off&pump control function");
-    CH2Present.setName("CH2 present");
+    SlaveConfig.setName("Slave config");
+    mqtt.addDeviceType(&SlaveConfig);
     SlaveMemeberID.setName("Slave MemberID");
+    mqtt.addDeviceType(&SlaveMemeberID);
 
-    // 17 Relative modulation level     • Not mandatory                           • Must respond with READ_ACK or DATA_INVALID
     RelativeModulationLevel.setName("Relative modulation level");
     RelativeModulationLevel.setUnitOfMeasurement("%");
-
-    // 25 Boiler temperature            • Not mandatory                           • Must respond with READ_ACK or
-    //                                                                              DATA_INVALID (for example if
-    //                                                                              sensor fault)
-    BoilerTemperature.setName("Boiler temperature");
-    BoilerTemperature.setDeviceClass("temperature");
-    BoilerTemperature.setUnitOfMeasurement("C");
+    mqtt.addDeviceType(&RelativeModulationLevel);
 
     Presure.setName("CH Presure");
     Presure.setDeviceClass("pressure");
     Presure.setUnitOfMeasurement("bar");
+    mqtt.addDeviceType(&Presure);
     PresureV.setName("CH Presure V");
     PresureV.setDeviceClass("pressure");
     PresureV.setUnitOfMeasurement("V");
+    mqtt.addDeviceType(&PresureV);
 
-    HVAC.setName("CH");
-    HVAC.onTargetTemperatureCommand(onTargetTemperatureCommand);
-    HVAC.setMaxTemp(80);
-    HVAC.setMinTemp(10);
-    HVAC.setRetain(true);
-    HVAC.setTempStep(0.5);
-    HVAC.setModes(HAHVAC::HeatMode | HAHVAC::OffMode);
-    // HVAC.setTargetTemperature(21.0f);
+    CH.setName("CH");
+    CH.onTargetTemperatureCommand(onTargetTemperatureCommand);
+    CH.setTargetTemperature(21);
+    CH.setMaxTemp(80);
+    CH.setMinTemp(10);
+    CH.setRetain(true);
+    CH.setTempStep(0.5);
+    CH.setModes(HAHVAC::HeatMode | HAHVAC::OffMode);
+    mqtt.addDeviceType(&CH);
+
+    DHW.setName("DHW");
+    DHW.onTargetTemperatureCommand(onTargetTemperatureCommand);
+    DHW.setTargetTemperature(21);
+    DHW.setMaxTemp(80);
+    DHW.setMinTemp(10);
+    DHW.setRetain(true);
+    DHW.setTempStep(0.5);
+    DHW.setModes(HAHVAC::HeatMode | HAHVAC::OffMode);
+    mqtt.addDeviceType(&DHW);
 }
 
 unsigned long lastCall = millis();
@@ -192,18 +148,67 @@ void readLoop()
     uint32_t response;
     uint32_t request;
 
+    // Send master config
+    DEBUG("Send master config %i", OT_MASTER_ID);
+    request = ot.buildRequest(OpenThermRequestType::WRITE_DATA, OpenThermMessageID::MConfigMMemberIDcode, OT_MASTER_ID);
+    response = ot.sendRequest(request);
+    DEBUG("Response %08x\n", response);
+
+    // Read slave config
+    DEBUG("Read slave config");
+    request = ot.buildRequest(OpenThermRequestType::READ_DATA, OpenThermMessageID::SConfigSMemberIDcode, 0);
+    response = ot.sendRequest(request);
+    DEBUG("Response Slave config %08x\n", response);
+
+    if (ot.isValidResponse(response))
+    {
+        char buffer[200];
+        sprintf(buffer, "%s, %s, %s, %s, %s, %s (%02x)",
+                // 0: DHW present [ dhw not present, dhw is present ]
+                (response & BIT_DHWPRESENT) == BIT_DHWPRESENT ? "dhw is present" : "dhw not present",
+                // 1: Control type [ modulating, on/off ]
+                (response & BIT_CONTROLTYPE) == BIT_CONTROLTYPE ? "Control type: on/off" : "Control type: modulating",
+                // 2: Cooling config [ cooling not supported, cooling supported]
+                (response & BIT_COOLINGCONFIG) == BIT_COOLINGCONFIG ? "cooling supported" : "cooling not supported",
+                // 3: DHW config [instantaneous or not-specified, storage tank]
+                (response & BIT_DHWCONFIG) == BIT_DHWCONFIG ? "DHW config is storage tank" : "DHW instantaneous or not-specified",
+                // 4: Master low-off&pump control function [allowed, not allowed]
+                (response & BIT_PUMPCONTROL) == BIT_PUMPCONTROL ? "Pump control not allowed" : "Pump control allowed",
+                // 5: CH2 present [CH2 not present, CH2 present]
+                (response & BIT_CH2PRESENT) == BIT_CH2PRESENT ? "CH2 present" : "CH2 not present",
+                response);
+        SlaveConfig.setValue(buffer);
+
+        if ((response & BIT_DHWPRESENT) == BIT_DHWPRESENT)
+        {
+            DHW.setModes(HAHVAC::HeatMode | HAHVAC::OffMode);
+        }
+        else
+        {
+            DHW.setModes(HAHVAC::OffMode);
+        }
+
+        char buffer2[10];
+        sprintf(buffer, "%u", response & 0xFF);
+        SlaveMemeberID.setValue(buffer2);
+    }
+    else
+    {
+        SlaveConfig.setValue("INVALID");
+        SlaveMemeberID.setValue("INVALID");
+    }
+
     // 0 Config
     uint16_t config = 0;
     // HB
-    config |= (CHEnabled.getCurrentState() ? BIT_CHENABLED : 0);
-    config |= (DHWEnabled.getCurrentState() ? BIT_DHWENABLED : 0);
-    config |= (CoolingEnabled.getCurrentState() ? BIT_COOLINGENABLED : 0);
-    config |= (OTCActive.getCurrentState() ? BIT_OTCACTIVE : 0);
-    config |= (CH2Enabled.getCurrentState() ? BIT_CH2ENABLED : 0);
+    config |= (CH.getCurrentMode() == HAHVAC::HeatMode ? BIT_CHENABLED : 0);
+    config |= (DHW.getCurrentMode() == HAHVAC::HeatMode ? BIT_DHWENABLED : 0);
+    config |= (0 ? BIT_COOLINGENABLED : 0);
+    config |= (0 ? BIT_OTCACTIVE : 0);
+    config |= (0 ? BIT_CH2ENABLED : 0);
     // reserved
     // LB = 0
     DEBUG("Config %08x\n", config);
-
     request = ot.buildRequest(OpenThermRequestType::READ_DATA, OpenThermMessageID::Status, config);
     response = ot.sendRequest(request);
     DEBUG("Response %08x\n", response);
@@ -229,39 +234,7 @@ void readLoop()
         DiagnosticIndication.setValue("INVALID");
     }
 
-    request = ot.buildRequest(OpenThermRequestType::READ_DATA, OpenThermMessageID::SConfigSMemberIDcode, 0);
-    response = ot.sendRequest(request);
-    DEBUG("Response SConfig %08x\n", response);
-
-    if (ot.isValidResponse(response))
-    {
-        // 0: DHW present [ dhw not present, dhw is present ]
-        DHWPresent.setValue((response & BIT_DHWPRESENT) == BIT_DHWPRESENT ? "dhw is present" : "dhw not present");
-        // 1: Control type [ modulating, on/off ]
-        ControlType.setValue((response & BIT_CONTROLTYPE) == BIT_CONTROLTYPE ? "on/off" : "modulating");
-        // 2: Cooling config [ cooling not supported, cooling supported]
-        CoolingConfig.setValue((response & BIT_COOLINGCONFIG) == BIT_COOLINGCONFIG ? "cooling supported" : "cooling not supported");
-        // 3: DHW config [instantaneous or not-specified, storage tank]
-        DHWConfig.setValue((response & BIT_DHWCONFIG) == BIT_DHWCONFIG ? "storage tank" : "instantaneous or not-specified");
-        // 4: Master low-off&pump control function [allowed, not allowed]
-        PumpControl.setValue((response & BIT_PUMPCONTROL) == BIT_PUMPCONTROL ? "not allowed" : "allowed");
-        // 5: CH2 present [CH2 not present, CH2 present]
-        CH2Present.setValue((response & BIT_CH2PRESENT) == BIT_CH2PRESENT ? "CH2 present" : "CH2 not present");
-        char buffer[10];
-        sprintf(buffer, "%u", response & 0xFF);
-        SlaveMemeberID.setValue(buffer);
-    }
-    else
-    {
-        DHWPresent.setValue("INVALID");
-        ControlType.setValue("INVALID");
-        CoolingConfig.setValue("INVALID");
-        DHWConfig.setValue("INVALID");
-        PumpControl.setValue("INVALID");
-        CH2Present.setValue("INVALID");
-        SlaveMemeberID.setValue("INVALID");
-    }
-
+    DEBUG("Read rel mode level\n");
     request = ot.buildRequest(OpenThermRequestType::READ_DATA, OpenThermMessageID::RelModLevel, 0);
     response = ot.sendRequest(request);
     DEBUG("Response %08x\n", response);
@@ -276,32 +249,31 @@ void readLoop()
         RelativeModulationLevel.setValue("INVALID");
     }
 
+    DEBUG("Request CH temp\n");
     request = ot.buildRequest(OpenThermRequestType::READ_DATA, OpenThermMessageID::Tboiler, 0);
     response = ot.sendRequest(request);
     DEBUG("Response %08x\n", response);
     if (ot.isValidResponse(response))
     {
-        char buffer[10];
-        sprintf(buffer, "%2f", ot.getFloat(response));
-        BoilerTemperature.setValue(buffer);
-        HVAC.setCurrentTemperature(ot.getFloat(response));
+        CH.setCurrentTemperature(ot.getFloat(response));
     }
     else
     {
-        BoilerTemperature.setValue("INVALID");
+        // BoilerTemperature.setValue("INVALID");
     }
 
-    request = ot.buildRequest(OpenThermRequestType::READ_DATA, OpenThermMessageID::OpenThermVersionSlave, 0);
+    DEBUG("Request DHW temp\n");
+    request = ot.buildRequest(OpenThermRequestType::READ_DATA, OpenThermMessageID::Tdhw, 0);
     response = ot.sendRequest(request);
     DEBUG("Response %08x\n", response);
-
     if (ot.isValidResponse(response))
     {
-        DEBUG("Slave openthem version %f", ot.getFloat(response));
+        float temp = ot.getFloat(response);
+        DHW.setCurrentTemperature(temp);
     }
     else
     {
-        DEBUG("Error\n");
+        // DHW.setCurrentTemperature().setValue("INVALID");
     }
 
     double pressureV = readPresure();
@@ -310,10 +282,13 @@ void readLoop()
     DEBUG("Pressure (bar): %.5f (%.5f V)\n", pressure, pressureV);
 
     char buffer[10];
-    if (pressure > 0) {
-    sprintf(buffer, "%.2f", pressure);
-    Presure.setValue(buffer);
-    } else {
+    if (pressure > 0)
+    {
+        sprintf(buffer, "%.2f", pressure);
+        Presure.setValue(buffer);
+    }
+    else
+    {
         Presure.setValue("INVALID");
     }
     sprintf(buffer, "%.2f", pressureV);
