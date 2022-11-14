@@ -10,7 +10,7 @@
 
 #define HA_DISCOVERY_PREFIX "homeassistant"
 #define HA_DEVICE_PREFIX "esphome"
-#define UNIQ_ID boiler
+#define UNIQ_ID "boiler"
 
 #include "config.h"
 #include "sensors.h"
@@ -19,7 +19,6 @@ const int inPin = 4;  // for Arduino, 4 for ESP8266 (D2), 21 for ESP32
 const int outPin = 5; // for Arduino, 5 for ESP8266 (D1), 22 for ESP32
 
 OpenTherm ot(inPin, outPin);
-
 WiFiClient client;
 HADevice device(UNIQ_ID);
 HAMqtt mqtt(client, device, 30);
@@ -41,11 +40,6 @@ void setup()
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
     WiFi.setAutoReconnect(true);
     WiFi.persistent(true);
-    
-    device.setName("BAXI Slim");
-    device.enableSharedAvailability();
-    device.enableLastWill();
-    initConfig(device);
 
     while (WiFi.status() != WL_CONNECTED) {
         Serial.print(".");
@@ -60,6 +54,11 @@ void setup()
     mqtt.setDiscoveryPrefix(HA_DISCOVERY_PREFIX);
     mqtt.setDataPrefix(HA_DEVICE_PREFIX);
     mqtt.begin(MQTT_BROKER_HOST, MQTT_BROKER_USER, MQTT_BROKER_PASS);
+    
+    device.setName("BAXI Slim");
+    device.enableSharedAvailability();
+    device.enableLastWill();
+    initConfig(device, mqtt);
 }
 
 void loop()
@@ -67,11 +66,6 @@ void loop()
     // system tasks
     readLoop();
     // check wifi
-    if (WiFi.status() != WL_CONNECTED) {
-        DEBUG("Connection lost, try to reconnect...\n");
-        return;
-    }
-
     // network stuff
     mqtt.loop();
 }

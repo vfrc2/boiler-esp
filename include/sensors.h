@@ -99,6 +99,6 @@ extern HASensor Presure;
 
 extern HAHVAC HVAC;
 
-void initConfig(const HADevice & d);
+void initConfig(HADevice & device, HAMqtt & mqtt);
 
 void readLoop();

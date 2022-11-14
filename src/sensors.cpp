@@ -108,7 +108,7 @@ void onSwitchCommand(bool state, HASwitch *sender)
     sender->setState(state); // report state back to the Home Assistant
 }
 
-void initConfig(const HADevice &d)
+void initConfig(HADevice &d, HAMqtt& mqtt)
 {
     // HB Master config
     CHEnabled.setName("CH enable");
@@ -310,8 +310,12 @@ void readLoop()
     DEBUG("Pressure (bar): %.5f (%.5f V)\n", pressure, pressureV);
 
     char buffer[10];
+    if (pressure > 0) {
     sprintf(buffer, "%.2f", pressure);
     Presure.setValue(buffer);
+    } else {
+        Presure.setValue("INVALID");
+    }
     sprintf(buffer, "%.2f", pressureV);
     PresureV.setValue(buffer);
 
