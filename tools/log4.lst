@@ -1,0 +1,16 @@
+Start
+W 2 4
+
+SUCCESS: READ_ACK 40000002 //   0 R - Status flag8 / flag8 Master and Slave Status flags.
+SUCCESS: READ_ACK 40030904 //   3 R - S-Config / S-MemberIDcode flag8 / u8 Slave Configuration Flags / Slave MemberID Code
+SUCCESS: READ_ACK c0050000 //   5 R - ASF-flags / OEM-fault-code flag8 / u8 Application-specific fault flags and OEM fault code
+SUCCESS: READ_ACK 40060301 //   6 R - RBP-flags flag8 / flag8 Remote boiler parameter transfer-enable & read/write flags
+SUCCESS: READ_ACK c00a3900 //  10 R - TSP u8 / u8 Number of Transparent-Slave-Parameters supported by slave
+SUCCESS: READ_ACK c00b001a //  11 R W TSP-index / TSP-value u8 / u8 Index number / Value of referred-to transparent slave parameter.
+SUCCESS: READ_ACK 40192d00 //  25 R - Tboiler f8.8 Boiler flow water temperature (°C)
+SUCCESS: READ_ACK c01a3200 //  26 R - Tdhw f8.8 DHW temperature (°C)
+SUCCESS: READ_ACK c0303c05 //  48 R - TdhwSet-UB / TdhwSet-LB s8 / s8 DHW setpoint upper & lower bounds for adjustment (°C)
+SUCCESS: READ_ACK 4031551e //  49 R - MaxTSet-UB / MaxTSet-LB s8 / s8 Max CH water setpoint upper & lower bounds for adjustment (°C)
+SUCCESS: READ_ACK 40380000 //  56 R W TdhwSet f8.8 DHW setpoint (°C) (Remote parameter 1)
+SUCCESS: READ_ACK c0395500 //  57 R W MaxTSet f8.8 Max CH water setpoint (°C) (Remote parameters 2)
+SUCCESS: READ_ACK c07f3301 // 127 R - Slave-version u8 / u8 Slave product version number and type

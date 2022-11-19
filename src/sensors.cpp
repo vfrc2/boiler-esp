@@ -70,6 +70,11 @@ void onTargetTemperatureCommand(HANumeric temperature, HAHVAC *sender)
     }
 }
 
+void onModeCommand(HAHVAC::Mode mode, HAHVAC * sender) {
+    Serial.println("Change mode");
+    sender->setMode(mode);
+}
+
 void onSwitchCommand(bool state, HASwitch *sender)
 {
     sender->setState(state); // report state back to the Home Assistant
@@ -113,6 +118,8 @@ void initConfig(HADevice &d, HAMqtt &mqtt)
 
     CH.setName("CH");
     CH.onTargetTemperatureCommand(onTargetTemperatureCommand);
+    // CH.onPowerCommand(onPowerCommand);
+    CH.onModeCommand(onModeCommand);
     CH.setTargetTemperature(21);
     CH.setMaxTemp(80);
     CH.setMinTemp(10);
@@ -123,6 +130,7 @@ void initConfig(HADevice &d, HAMqtt &mqtt)
 
     DHW.setName("DHW");
     DHW.onTargetTemperatureCommand(onTargetTemperatureCommand);
+    DHW.onModeCommand(onModeCommand);
     DHW.setTargetTemperature(21);
     DHW.setMaxTemp(80);
     DHW.setMinTemp(10);
@@ -149,13 +157,13 @@ void readLoop()
     uint32_t request;
 
     // Send master config
-    DEBUG("Send master config %i", OT_MASTER_ID);
+    DEBUG("Send master config %i\n", OT_MASTER_ID);
     request = ot.buildRequest(OpenThermRequestType::WRITE_DATA, OpenThermMessageID::MConfigMMemberIDcode, OT_MASTER_ID);
     response = ot.sendRequest(request);
     DEBUG("Response %08x\n", response);
 
     // Read slave config
-    DEBUG("Read slave config");
+    DEBUG("Read slave config\n");
     request = ot.buildRequest(OpenThermRequestType::READ_DATA, OpenThermMessageID::SConfigSMemberIDcode, 0);
     response = ot.sendRequest(request);
     DEBUG("Response Slave config %08x\n", response);
@@ -276,6 +284,42 @@ void readLoop()
         // DHW.setCurrentTemperature().setValue("INVALID");
     }
 
+    DEBUG("Request boiler MAX/MIN temp\n");
+    request = ot.buildRequest(OpenThermRequestType::READ_DATA, OpenThermMessageID::MaxTSetUBMaxTSetLB, 0);
+    response = ot.sendRequest(request);
+    DEBUG("Response %08x\n", response);
+    if (ot.isValidResponse(response))
+    {
+        float maxTemp = static_cast<float>(ot.getUInt(response) >> 8);
+        float minTemp = static_cast<float>(ot.getUInt(response) & 0xFF);
+
+        CH.setMaxTemp(maxTemp);
+        CH.setMinTemp(minTemp);
+    }
+    else
+    {
+        DEBUG("Error read min/max for CH");
+        // DHW.setCurrentTemperature().setValue("INVALID");
+    }
+
+    DEBUG("Request boiler MAX/MIN temp\n");
+    request = ot.buildRequest(OpenThermRequestType::READ_DATA, OpenThermMessageID::TdhwSetUBTdhwSetLB, 0);
+    response = ot.sendRequest(request);
+    DEBUG("Response %08x\n", response);
+    if (ot.isValidResponse(response))
+    {
+        float maxTemp = static_cast<float>(ot.getUInt(response) >> 8);
+        float minTemp = static_cast<float>(ot.getUInt(response) & 0xFF);
+
+        DHW.setMaxTemp(maxTemp);
+        DHW.setMinTemp(minTemp);
+    }
+    else
+    {
+        DEBUG("Error read min/max for CH");
+        // DHW.setCurrentTemperature().setValue("INVALID");
+    }
+
     double pressureV = readPresure();
     double pressure = map(pressureV, 0.33, 3.3, 0, 12) - 0.4;
 
@@ -309,7 +353,7 @@ double map(double x, double in_min, double in_max, double out_min, double out_ma
 float readPresure()
 {
     int count = 0;
-    double av;
+    double av = (analogRead(A0) * 3.3) / 1023.0;
     while (count < 10)
     {
         auto c = (analogRead(A0) * 3.3) / 1023.0;
