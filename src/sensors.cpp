@@ -1,10 +1,12 @@
 #include <Arduino.h>
 #include <ArduinoHA.h>
 #include <OpenTherm.h>
+#include <NTPClient.h>
 
 #include "sensors.h"
 #include "config.h"
 
+extern NTPClient ntp;
 extern OpenTherm ot;
 
 #define BIT_CHENABLED (1 << 8)
@@ -26,6 +28,9 @@ extern OpenTherm ot;
 #define BIT_PUMPCONTROL (1 << 12)
 #define BIT_CH2PRESENT (1 << 13)
 
+#define TIME_THRESHOLD (1 * 60 * 1000)
+#define DEFAULT_VALUE_THRESHOLD (0.5)
+
 HASensor FaultIndication("FaultIndication");
 HASensor CHMode("CHMode");
 HASensor DHWMode("DHWMode");
@@ -45,6 +50,9 @@ HASensor PresureV("CHPresureV");
 
 HAHVAC CH("CH", HAHVAC::TargetTemperatureFeature | HAHVAC::PowerFeature | HAHVAC::ModesFeature);
 HAHVAC DHW("DHW", HAHVAC::TargetTemperatureFeature | HAHVAC::PowerFeature | HAHVAC::ModesFeature);
+
+bool throttleUpdate(double value, double prevValue, double valueThreshold = DEFAULT_VALUE_THRESHOLD);
+bool throttleUpdate();
 
 void onTargetTemperatureCommand(HANumeric temperature, HAHVAC *sender)
 {
@@ -70,7 +78,8 @@ void onTargetTemperatureCommand(HANumeric temperature, HAHVAC *sender)
     }
 }
 
-void onModeCommand(HAHVAC::Mode mode, HAHVAC * sender) {
+void onModeCommand(HAHVAC::Mode mode, HAHVAC *sender)
+{
     Serial.println("Change mode");
     sender->setMode(mode);
 }
@@ -185,7 +194,13 @@ void readLoop()
                 // 5: CH2 present [CH2 not present, CH2 present]
                 (response & BIT_CH2PRESENT) == BIT_CH2PRESENT ? "CH2 present" : "CH2 not present",
                 response);
+
+        // if (
+        //     strcomp(SlaveConfig.getValue(), buffer)
+        //     || throttleUpdate()
+        // ) {
         SlaveConfig.setValue(buffer);
+        // }
 
         if ((response & BIT_DHWPRESENT) == BIT_DHWPRESENT)
         {

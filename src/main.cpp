@@ -5,6 +5,8 @@
 #include <ArduinoHA.h>
 #include <OpenTherm.h>
 #include <GParser.h>
+#include <NTPClient.h>
+#include <WiFiUdp.h>
 
 #define HA_DISCOVERY_PREFIX "homeassistant"
 #define HA_DEVICE_PREFIX "esphome"
@@ -18,6 +20,9 @@ const int outPin = 5; // for Arduino, 5 for ESP8266 (D1), 22 for ESP32
 
 OpenTherm ot(inPin, outPin);
 WiFiClient client;
+WiFiUDP ntpUdp;
+NTPClient ntp(ntpUdp, 'pool.ntp.org', +3*60);
+
 HADevice device(UNIQ_ID);
 HAMqtt mqtt(client, device, 40);
 
@@ -51,6 +56,7 @@ void setup()
 
     // device.setName("BAXI Slim");
 
+    ntp.begin();
 
     mqtt.setDiscoveryPrefix(HA_DISCOVERY_PREFIX);
     mqtt.setDataPrefix(HA_DEVICE_PREFIX);
@@ -72,6 +78,7 @@ void loop()
     readLoop();
     // check wifi
     // network stuff
+    ntp.update();
     mqtt.loop();
 }
 
