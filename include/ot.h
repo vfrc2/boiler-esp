@@ -8,3 +8,5 @@
 extern OpenTherm * ot;
 
 void setupOT();
+
+unsigned long otBuildRequest(OpenThermMessageType type, uint8_t id, unsigned int data);
