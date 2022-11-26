@@ -1,0 +1,20 @@
+# Boiler Esp
+
+
+# tasks
+
+- shell for serial - on idle
+- shell for telnet - on idle
+- ot read out - every 1 min
+- mqtt/ha integration - only on change
+- sensors (outside temperature) readout - every 5 мин
+- pid loop?
+- otc loop?
+
+
+
+# shell commands
+
+- logs - readout logs
+- ot r|w <cmd> [[data=0] [f8.8|u16|s16]]
+

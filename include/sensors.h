@@ -1,7 +1,6 @@
 #pragma once 
 
-#include <ArduinoHA.h>
+void readOTLoop();
+void readAnalogSensors();
 
-void initConfig(HADevice & device, HAMqtt & mqtt);
-
-void readLoop();
+void onTargetTemperatureCommand(HANumeric temperature, HAHVAC *sender);
