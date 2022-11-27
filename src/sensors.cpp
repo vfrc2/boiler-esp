@@ -43,18 +43,12 @@ void readOTLoop()
     if (ot->isValidResponse(response))
     {
         char buffer[200];
-        sprintf(buffer, "%s, %s, %s, %s, %s, %s (%02x)",
-                // 0: DHW present [ dhw not present, dhw is present ]
+        sprintf(buffer, "%s\n%s\n%s\n%s\n%s\n%s\n(%02x)",
                 (response & BIT_DHWPRESENT) == BIT_DHWPRESENT ? "dhw is present" : "dhw not present",
-                // 1: Control type [ modulating, on/off ]
                 (response & BIT_CONTROLTYPE) == BIT_CONTROLTYPE ? "Control type: on/off" : "Control type: modulating",
-                // 2: Cooling config [ cooling not supported, cooling supported]
                 (response & BIT_COOLINGCONFIG) == BIT_COOLINGCONFIG ? "cooling supported" : "cooling not supported",
-                // 3: DHW config [instantaneous or not-specified, storage tank]
                 (response & BIT_DHWCONFIG) == BIT_DHWCONFIG ? "DHW config is storage tank" : "DHW instantaneous or not-specified",
-                // 4: Master low-off&pump control function [allowed, not allowed]
                 (response & BIT_PUMPCONTROL) == BIT_PUMPCONTROL ? "Pump control not allowed" : "Pump control allowed",
-                // 5: CH2 present [CH2 not present, CH2 present]
                 (response & BIT_CH2PRESENT) == BIT_CH2PRESENT ? "CH2 present" : "CH2 not present",
                 response);
         SlaveConfig->setValue(buffer);
@@ -95,23 +89,21 @@ void readOTLoop()
 
     if (ot->isValidResponse(response))
     {
-        FaultIndication->setValue((response & BIT_FAULTINDICATOR) == BIT_FAULTINDICATOR ? "fault" : " no fault");
-        CHMode->setValue((response & BIT_CHMODE) == BIT_CHMODE ? "CH active" : "CH not active");
-        DHWMode->setValue((response & BIT_DHWMODE) == BIT_DHWMODE ? "DHW active" : "DHW not active");
-        FlameStatus->setValue((response & BIT_FLAMESTATUS) == BIT_FLAMESTATUS ? "flame on" : "flame off");
-        CoolingStatus->setValue((response & BIT_COOLINGSTATUS) == BIT_COOLINGSTATUS ? "cooling mode active" : "cooling mode not active");
-        CH2Mode->setValue((response & BIT_CH2MODE) == BIT_CH2MODE ? "CH2 active" : "CH2 not active");
-        DiagnosticIndication->setValue((response & BIT_DIAGNOSTICINDICATION) == BIT_DIAGNOSTICINDICATION ? "diagnostic event" : "no diagnostics");
+        char buffer[200];
+        sprintf(buffer, "%s\n%s\n%s\n%s\n%s\n%s\n(%02x)",
+                (response & BIT_FAULTINDICATOR) == BIT_FAULTINDICATOR ? "fault" : " no fault",
+                (response & BIT_CHMODE) == BIT_CHMODE ? "CH active" : "CH not active",
+                (response & BIT_DHWMODE) == BIT_DHWMODE ? "DHW active" : "DHW not active",
+                (response & BIT_FLAMESTATUS) == BIT_FLAMESTATUS ? "flame on" : "flame off",
+                (response & BIT_COOLINGSTATUS) == BIT_COOLINGSTATUS ? "cooling mode active" : "cooling mode not active",
+                (response & BIT_CH2MODE) == BIT_CH2MODE ? "CH2 active" : "CH2 not active",
+                (response & BIT_DIAGNOSTICINDICATION) == BIT_DIAGNOSTICINDICATION ? "diagnostic event" : "no diagnostics",
+                response);
+        BoilerStatus->setValue(buffer);
     }
     else
     {
-        FaultIndication->setValue("INVALID");
-        CHMode->setValue("INVALID");
-        DHWMode->setValue("INVALID");
-        FlameStatus->setValue("INVALID");
-        CoolingStatus->setValue("INVALID");
-        CH2Mode->setValue("INVALID");
-        DiagnosticIndication->setValue("INVALID");
+        BoilerStatus->setValue("INVALID");
     }
 
     DEBUG("Request CH temp\n");

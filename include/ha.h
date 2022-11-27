@@ -9,17 +9,9 @@
 extern HADevice *haDevice;
 extern HAMqtt* mqtt;
 
-extern HASensor *FaultIndication;
-extern HASensor *CHMode;
-extern HASensor *DHWMode;
-extern HASensor *FlameStatus;
-extern HASensor *CoolingStatus;
-extern HASensor *CH2Mode;
-extern HASensor *DiagnosticIndication;
-
+extern HASensor *BoilerStatus;
 extern HASensor *SlaveConfig;
 extern HASensor *SlaveMemeberID;
-
 extern HASensor *BoilerTemperature;
 
 extern HASensor *Presure;
