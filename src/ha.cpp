@@ -61,7 +61,7 @@ void setupHA(WiFiClient & client) {
     myCH.setMinTemp(10);
     myCH.setRetain(true);
     myCH.setTempStep(0.5);
-    myCH.setModes(HAHVAC::HeatMode | HAHVAC::OffMode);
+    myCH.setModes(HAHVAC::HeatMode | HAHVAC::OffMode | HAHVAC::ActionFeature);
     mqtt->addDeviceType(&myCH);
     CH = &myCH;
 
@@ -71,7 +71,7 @@ void setupHA(WiFiClient & client) {
     myDHW.setMinTemp(10);
     myDHW.setRetain(true);
     myDHW.setTempStep(0.5);
-    myDHW.setModes(HAHVAC::HeatMode | HAHVAC::OffMode);
+    myDHW.setModes(HAHVAC::HeatMode | HAHVAC::OffMode | HAHVAC::ActionFeature);
     mqtt->addDeviceType(&myDHW);
     DHW = &myDHW;
 }

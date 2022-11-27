@@ -99,6 +99,19 @@ void readOTLoop()
                 (response & BIT_CH2MODE) == BIT_CH2MODE ? "CH2 active" : "CH2 not active",
                 (response & BIT_DIAGNOSTICINDICATION) == BIT_DIAGNOSTICINDICATION ? "diagnostic event" : "no diagnostics",
                 response);
+        
+        if ((response & BIT_CHMODE) == BIT_CHMODE) {
+            CH->setAction((response & BIT_FLAMESTATUS) == BIT_FLAMESTATUS ? HAHVAC::Action::HeatingAction : HAHVAC::Action::IdleAction);
+        } else {
+            CH->setAction(HAHVAC::Action::OffAction);
+        }
+        
+        if ((response & BIT_DHWMODE) == BIT_DHWMODE) {
+            DHW->setAction((response & BIT_FLAMESTATUS) == BIT_FLAMESTATUS ? HAHVAC::Action::HeatingAction : HAHVAC::Action::IdleAction);
+        } else {
+            DHW->setAction(HAHVAC::Action::OffAction);
+        }
+
         BoilerStatus->setValue(buffer);
     }
     else
