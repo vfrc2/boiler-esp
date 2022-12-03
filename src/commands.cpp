@@ -4,7 +4,7 @@
 
 #include "ot.h"
 
-ShellCommand(led, "Send OT command ex: ot r|w <id> [[<data>] [flag8|u8|s8|f8.8|u16|s16]]",
+ShellCommand(OT, "Send OT command ex: ot r|w <id> [[<data>] [flag8|u8|s8|f8.8|u16|s16]]",
              [](Shell &shell, ShellCommandRegister *command, int argc, const ShellArguments &argv)
              {
                  if (argc < 3)

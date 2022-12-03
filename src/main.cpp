@@ -39,7 +39,7 @@ void setup()
     os.attach(
         0, []()
         { readOTLoop(); },
-        1 * 60 * 1000);
+        5 * 1000);
 
     // sensor analog
     os.attach(
@@ -53,6 +53,8 @@ void setup()
 
     CH->onTargetTemperatureCommand(onTargetTemperatureCommand);
     DHW->onTargetTemperatureCommand(onTargetTemperatureCommand);
+
+    os.exec(1);
 }
 
 void loop()

@@ -43,7 +43,7 @@ void readOTLoop()
     if (ot->isValidResponse(response))
     {
         char buffer[200];
-        sprintf(buffer, "%s\n%s\n%s\n%s\n%s\n%s\n(%02x)",
+        sprintf(buffer, "%s;%s;%s;%s;%s;%s; (%02x)",
                 (response & BIT_DHWPRESENT) == BIT_DHWPRESENT ? "dhw is present" : "dhw not present",
                 (response & BIT_CONTROLTYPE) == BIT_CONTROLTYPE ? "Control type: on/off" : "Control type: modulating",
                 (response & BIT_COOLINGCONFIG) == BIT_COOLINGCONFIG ? "cooling supported" : "cooling not supported",
@@ -63,14 +63,17 @@ void readOTLoop()
         }
 
         char buffer2[10];
-        sprintf(buffer, "%u", response & 0xFF);
+        sprintf(buffer2, "%u", response & 0xFF);
         SlaveMemeberID->setValue(buffer2);
     }
     else
     {
+        DEBUG("Error reading slave config\n");
         SlaveConfig->setValue("INVALID");
         SlaveMemeberID->setValue("INVALID");
     }
+
+    DEBUG("Read status\n");
 
     // 0 Config
     uint16_t config = 0;
@@ -90,7 +93,7 @@ void readOTLoop()
     if (ot->isValidResponse(response))
     {
         char buffer[200];
-        sprintf(buffer, "%s\n%s\n%s\n%s\n%s\n%s\n(%02x)",
+        sprintf(buffer, "%s;%s;%s;%s;%s;%s;%s; (%02x)",
                 (response & BIT_FAULTINDICATOR) == BIT_FAULTINDICATOR ? "fault" : " no fault",
                 (response & BIT_CHMODE) == BIT_CHMODE ? "CH active" : "CH not active",
                 (response & BIT_DHWMODE) == BIT_DHWMODE ? "DHW active" : "DHW not active",
@@ -100,14 +103,14 @@ void readOTLoop()
                 (response & BIT_DIAGNOSTICINDICATION) == BIT_DIAGNOSTICINDICATION ? "diagnostic event" : "no diagnostics",
                 response);
         
-        if ((response & BIT_CHMODE) == BIT_CHMODE) {
-            CH->setAction((response & BIT_FLAMESTATUS) == BIT_FLAMESTATUS ? HAHVAC::Action::HeatingAction : HAHVAC::Action::IdleAction);
+        if (CH->getCurrentMode() ==  HAHVAC::HeatMode) {
+            CH->setAction((response & BIT_CHMODE) == BIT_CHMODE ? HAHVAC::Action::HeatingAction : HAHVAC::Action::IdleAction);
         } else {
             CH->setAction(HAHVAC::Action::OffAction);
         }
         
-        if ((response & BIT_DHWMODE) == BIT_DHWMODE) {
-            DHW->setAction((response & BIT_FLAMESTATUS) == BIT_FLAMESTATUS ? HAHVAC::Action::HeatingAction : HAHVAC::Action::IdleAction);
+        if (CH->getCurrentMode() == HAHVAC::HeatMode) {
+            DHW->setAction((response & BIT_DHWMODE) == BIT_DHWMODE ? HAHVAC::Action::HeatingAction : HAHVAC::Action::IdleAction);
         } else {
             DHW->setAction(HAHVAC::Action::OffAction);
         }
@@ -116,6 +119,7 @@ void readOTLoop()
     }
     else
     {
+        DEBUG("Error reading boiler status\n");
         BoilerStatus->setValue("INVALID");
     }
 
@@ -126,6 +130,8 @@ void readOTLoop()
     if (ot->isValidResponse(response))
     {
         CH->setCurrentTemperature(ot->getFloat(response));
+    } else {
+        DEBUG("Error read CH temperature\n");
     }
 
     DEBUG("Request DHW temp\n");
@@ -136,6 +142,8 @@ void readOTLoop()
     {
         float temp = ot->getFloat(response);
         DHW->setCurrentTemperature(temp);
+    } else {
+        DEBUG("Error read DHW temperature\n");
     }
 
     DEBUG("Request boiler MAX/MIN temp\n");
@@ -221,22 +229,23 @@ void onTargetTemperatureCommand(HANumeric temperature, HAHVAC *sender)
 {
     float temperatureFloat = temperature.toFloat();
 
-    Serial.print("Target temperature: ");
-    Serial.println(temperatureFloat);
+    Serial.printf("Target temperature: %f\n", temperatureFloat);
 
-    bool result = false;
     if (sender == CH)
     {
-        result = ot->setBoilerTemperature(temperatureFloat);
+        DEBUG("Set CH temp\n");
+        ot->setBoilerTemperature(temperatureFloat);
     }
     else if (sender == DHW)
     {
-        result = ot->setDHWSetpoint(temperatureFloat);
+        DEBUG("Set DHW temp\n");
+        ot->setDHWSetpoint(temperatureFloat);
     }
 
     sender->setTargetTemperature(temperatureFloat); // report target temperature back to the HA panel
-    if (result)
+    if (ot->getLastResponseStatus() != OpenThermResponseStatus::SUCCESS)
     {
-        DEBUG("Error set target temperature: ");
+        Serial.printf("Error set target temperature: %s\n", ot->statusToString(ot->getLastResponseStatus()));
     }
+    DEBUG("Set target temp OK\n");
 }

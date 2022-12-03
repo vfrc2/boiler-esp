@@ -21,12 +21,13 @@ static HASensor mySlaveMemeberID("SlaveMemeberID");
 static HASensor myBoilerTemperature("BoilerTemperature");
 static HASensor myPresure("CHPresure");
 
-static HAHVAC myCH("CH", HAHVAC::TargetTemperatureFeature | HAHVAC::ModesFeature);
-static HAHVAC myDHW("DHW", HAHVAC::TargetTemperatureFeature  | HAHVAC::ModesFeature);
+static HAHVAC myCH("CH", HAHVAC::TargetTemperatureFeature | HAHVAC::ModesFeature | HAHVAC::ActionFeature);
+static HAHVAC myDHW("DHW", HAHVAC::TargetTemperatureFeature  | HAHVAC::ModesFeature | HAHVAC::ActionFeature);
 
 static void onModeCommand(HAHVAC::Mode mode, HAHVAC * sender);
 
 void setupHA(WiFiClient & client) {
+    DEBUG("Setup HA sensors\n");
     haDevice = new HADevice(UNIQ_ID);
     haDevice->setName("BAXI Slim");
     haDevice->enableSharedAvailability();
@@ -47,7 +48,7 @@ void setupHA(WiFiClient & client) {
 
     mySlaveMemeberID.setName("Slave MemberID");
     mqtt->addDeviceType(&mySlaveMemeberID);
-    SlaveConfig = &mySlaveConfig;
+    SlaveMemeberID = &mySlaveMemeberID;
 
     myPresure.setName("CH Presure");
     myPresure.setDeviceClass("pressure");
@@ -57,11 +58,11 @@ void setupHA(WiFiClient & client) {
 
     myCH.setName("CH");
     myCH.onModeCommand(onModeCommand);
-    myCH.setMaxTemp(40);
-    myCH.setMinTemp(10);
+    myCH.setMaxTemp(85);
+    myCH.setMinTemp(30);
     myCH.setRetain(true);
     myCH.setTempStep(0.5);
-    myCH.setModes(HAHVAC::HeatMode | HAHVAC::OffMode | HAHVAC::ActionFeature);
+    myCH.setModes(HAHVAC::HeatMode | HAHVAC::OffMode);
     mqtt->addDeviceType(&myCH);
     CH = &myCH;
 
@@ -71,7 +72,7 @@ void setupHA(WiFiClient & client) {
     myDHW.setMinTemp(10);
     myDHW.setRetain(true);
     myDHW.setTempStep(0.5);
-    myDHW.setModes(HAHVAC::HeatMode | HAHVAC::OffMode | HAHVAC::ActionFeature);
+    myDHW.setModes(HAHVAC::HeatMode | HAHVAC::OffMode);
     mqtt->addDeviceType(&myDHW);
     DHW = &myDHW;
 }
